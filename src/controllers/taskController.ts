@@ -3,6 +3,12 @@ import { db } from '../config/db';
 import { ObjectId } from 'mongodb';
 import { IStudyTask } from '../models/StudyTask';
 
+// Helper: safely extract and validate the :id route param
+const getValidObjectId = (id: unknown): ObjectId | null => {
+  if (typeof id !== 'string' || !ObjectId.isValid(id)) return null;
+  return new ObjectId(id);
+};
+
 export const getTasks = async (req: Request, res: Response) => {
   try {
     const userEmail = req.user?.email;
@@ -28,7 +34,7 @@ export const getTasks = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const tasksCollection = db.collection<IStudyTask>('study_tasks');
-    
+
     const tasks = await tasksCollection.find(query)
       .sort(sortOption)
       .skip(skip)
@@ -50,9 +56,12 @@ export const getTasks = async (req: Request, res: Response) => {
 
 export const getTaskById = async (req: Request, res: Response) => {
   try {
-    const task = await db.collection<IStudyTask>('study_tasks').findOne({ _id: new ObjectId(req.params.id) });
+    const taskId = getValidObjectId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task id' });
+
+    const task = await db.collection<IStudyTask>('study_tasks').findOne({ _id: taskId });
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    
+
     res.json(task);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch task' });
@@ -125,6 +134,9 @@ export const updateTask = async (req: Request, res: Response) => {
     const userEmail = req.user?.email;
     if (!userEmail) return res.status(401).json({ error: 'Unauthorized' });
 
+    const taskId = getValidObjectId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task id' });
+
     // Handle date conversion if updating deadline
     const updateData = { ...req.body };
     if (updateData.deadline) {
@@ -133,7 +145,7 @@ export const updateTask = async (req: Request, res: Response) => {
     delete updateData._id;
 
     const result = await db.collection<IStudyTask>('study_tasks').findOneAndUpdate(
-      { _id: new ObjectId(req.params.id), userEmail },
+      { _id: taskId, userEmail },
       { $set: updateData },
       { returnDocument: 'after' }
     );
@@ -150,11 +162,14 @@ export const deleteTask = async (req: Request, res: Response) => {
     const userEmail = req.user?.email;
     if (!userEmail) return res.status(401).json({ error: 'Unauthorized' });
 
-    const result = await db.collection('study_tasks').findOneAndDelete({ 
-      _id: new ObjectId(req.params.id), 
-      userEmail 
+    const taskId = getValidObjectId(req.params.id);
+    if (!taskId) return res.status(400).json({ error: 'Invalid task id' });
+
+    const result = await db.collection('study_tasks').findOneAndDelete({
+      _id: taskId,
+      userEmail
     });
-    
+
     if (!result) return res.status(404).json({ error: 'Task not found or unauthorized' });
 
     res.json({ message: 'Task deleted successfully' });
