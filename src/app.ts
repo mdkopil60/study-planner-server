@@ -13,11 +13,11 @@ app.use(cors({
   credentials: true
 }));
 
+// ⚠️ Better Auth রুট অবশ্যই express.json()-এর আগে বসাতে হবে
+app.use("/api/auth", toNodeHandler(auth));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Better Auth API Route
-app.use("/api/auth", toNodeHandler(auth));
 
 // Custom Routes
 app.use('/api/tasks', taskRoutes);
