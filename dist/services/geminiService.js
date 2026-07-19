@@ -4,7 +4,7 @@ exports.generateRecommendation = exports.generateStudyPlan = void 0;
 const genai_1 = require("@google/genai");
 const ai = new genai_1.GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_if_not_set' });
 // Currently active, non-deprecated model
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-3.5-flash";
 const generateStudyPlan = async (subject, difficulty, hours, examDate, length) => {
     try {
         let lengthInstruction = "Provide a concise response.";

@@ -3,7 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_if_not_set' });
 
 // Currently active, non-deprecated model
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-3.5-flash";
 
 export const generateStudyPlan = async (subject: string, difficulty: string, hours: string, examDate: string, length: string) => {
   try {
