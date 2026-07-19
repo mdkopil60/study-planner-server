@@ -1,73 +1,70 @@
-import { GoogleGenAI } from '@google/genai';
+import { Request, Response } from 'express';
+import { generateStudyPlan, generateRecommendation } from '../services/geminiService';
+import { db } from '../config/db';
+import { IAIHistory } from '../models/AIHistory';
+import { IStudyTask } from '../models/StudyTask';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_if_not_set' });
-
-// Currently active, non-deprecated model
-const MODEL_NAME = "gemini-2.5-flash";
-
-export const generateStudyPlan = async (subject: string, difficulty: string, hours: string, examDate: string, length: string) => {
+export const createStudyPlan = async (req: Request, res: Response) => {
   try {
-    let lengthInstruction = "Provide a concise response.";
-    if (length === "Medium Output") lengthInstruction = "Provide a moderately detailed response.";
-    else if (length === "Long Output") lengthInstruction = "Provide a very detailed and comprehensive response.";
+    const userEmail = req.user?.email;
+    if (!userEmail) return res.status(401).json({ error: 'Unauthorized' });
 
-    const prompt = `
-      Act as an expert AI Study Planner.
-      Create a study plan for a student with the following details:
-      Subject: ${subject}
-      Difficulty: ${difficulty}
-      Daily Study Hours: ${hours}
-      Exam Date: ${examDate}
-      
-      ${lengthInstruction}
-      
-      Please structure your response with the following headers:
-      - Daily Routine
-      - Weekly Plan
-      - Study Strategy
-      - Important Topics
-      - Exam Tips
-      
-      Format the output in clean Markdown.
-    `;
+    const { subject, difficulty, hours, examDate, length } = req.body;
 
-    const result = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
+    if (!subject || !difficulty || !hours || !examDate || !length) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
 
-    return result.text;
+    const prompt = `Subject: ${subject}, Difficulty: ${difficulty}, Hours: ${hours}, Exam Date: ${examDate}, Length: ${length}`;
+
+    const plan = await generateStudyPlan(subject, difficulty, hours, examDate, length);
+
+    const history: Omit<IAIHistory, '_id'> = {
+      userEmail,
+      prompt,
+      response: plan,
+      type: 'StudyPlan',
+      createdAt: new Date()
+    };
+
+    await db.collection('ai_histories').insertOne(history);
+
+    res.json({ plan });
   } catch (error: any) {
-    console.error("Gemini API Error (generateStudyPlan):", error?.message || error);
-    throw new Error(error?.message || 'Failed to generate study plan');
+    console.error("createStudyPlan Error:", error?.message || error);
+    res.status(500).json({ error: error?.message || 'Failed to generate study plan' });
   }
 };
 
-export const generateRecommendation = async (userHistory: any) => {
+export const getSmartRecommendation = async (req: Request, res: Response) => {
   try {
-    const prompt = `
-      Act as an AI Smart Recommendation Engine for a student.
-      Here is the student's past task history:
-      ${JSON.stringify(userHistory)}
-      
-      Based on their history, subjects, and difficulty levels, suggest the following:
-      - Next Study Topic
-      - Weak Subjects
-      - Daily Goal
-      - Best Study Time
-      - Learning Tips
-      
-      Provide the response in clean Markdown.
-    `;
+    const userEmail = req.user?.email;
+    if (!userEmail) return res.status(401).json({ error: 'Unauthorized' });
 
-    const result = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
+    const tasks = await db.collection<IStudyTask>('study_tasks').find({ userEmail }).limit(20).toArray();
 
-    return result.text;
+    const historyData = tasks.map(t => ({
+      subject: t.subject,
+      difficulty: t.difficulty,
+      status: t.status
+    }));
+
+    const prompt = `Based on history: ${JSON.stringify(historyData)}`;
+    const recommendation = await generateRecommendation(historyData);
+
+    const history: Omit<IAIHistory, '_id'> = {
+      userEmail,
+      prompt,
+      response: recommendation,
+      type: 'Recommendation',
+      createdAt: new Date()
+    };
+
+    await db.collection('ai_histories').insertOne(history);
+
+    res.json({ recommendation });
   } catch (error: any) {
-    console.error("Gemini API Error (generateRecommendation):", error?.message || error);
-    throw new Error(error?.message || 'Failed to generate recommendation');
+    console.error("getSmartRecommendation Error:", error?.message || error);
+    res.status(500).json({ error: error?.message || 'Failed to generate recommendation' });
   }
 };

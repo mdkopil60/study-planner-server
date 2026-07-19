@@ -16,5 +16,12 @@ exports.auth = (0, better_auth_1.betterAuth)({
     emailAndPassword: {
         enabled: true
     },
-    trustedOrigins: [process.env.CLIENT_URL || "http://localhost:3000"]
+    trustedOrigins: [process.env.CLIENT_URL || "http://localhost:3000"],
+    advanced: {
+        defaultCookieAttributes: {
+            sameSite: "none",
+            secure: true,
+            partitioned: true,
+        },
+    },
 });

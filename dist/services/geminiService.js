@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateRecommendation = exports.generateStudyPlan = void 0;
-const generative_ai_1 = require("@google/generative-ai");
-const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_key_if_not_set');
+const genai_1 = require("@google/genai");
+const ai = new genai_1.GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy_key_if_not_set' });
+// Currently active, non-deprecated model
+const MODEL_NAME = "gemini-2.5-flash";
 const generateStudyPlan = async (subject, difficulty, hours, examDate, length) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         let lengthInstruction = "Provide a concise response.";
         if (length === "Medium Output")
             lengthInstruction = "Provide a moderately detailed response.";
@@ -30,19 +31,23 @@ const generateStudyPlan = async (subject, difficulty, hours, examDate, length) =
       
       Format the output in clean Markdown.
     `;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        const result = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: prompt,
+        });
+        if (!result.text) {
+            throw new Error('Gemini API returned an empty response');
+        }
+        return result.text;
     }
     catch (error) {
-        console.error("Gemini API Error:", error);
-        throw new Error('Failed to generate study plan');
+        console.error("Gemini API Error (generateStudyPlan):", error?.message || error);
+        throw new Error(error?.message || 'Failed to generate study plan');
     }
 };
 exports.generateStudyPlan = generateStudyPlan;
 const generateRecommendation = async (userHistory) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const prompt = `
       Act as an AI Smart Recommendation Engine for a student.
       Here is the student's past task history:
@@ -57,13 +62,18 @@ const generateRecommendation = async (userHistory) => {
       
       Provide the response in clean Markdown.
     `;
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+        const result = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: prompt,
+        });
+        if (!result.text) {
+            throw new Error('Gemini API returned an empty response');
+        }
+        return result.text;
     }
     catch (error) {
-        console.error("Gemini API Error:", error);
-        throw new Error('Failed to generate recommendation');
+        console.error("Gemini API Error (generateRecommendation):", error?.message || error);
+        throw new Error(error?.message || 'Failed to generate recommendation');
     }
 };
 exports.generateRecommendation = generateRecommendation;

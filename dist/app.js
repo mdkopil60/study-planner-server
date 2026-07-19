@@ -15,10 +15,10 @@ app.use((0, cors_1.default)({
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true
 }));
+// ⚠️ Better Auth রুট অবশ্যই express.json()-এর আগে বসাতে হবে
+app.use("/api/auth", (0, node_1.toNodeHandler)(auth_1.auth));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
-// Better Auth API Route
-app.use("/api/auth", (0, node_1.toNodeHandler)(auth_1.auth));
 // Custom Routes
 app.use('/api/tasks', tasks_1.default);
 app.use('/api/ai', ai_1.default);
